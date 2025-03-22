@@ -1,5 +1,5 @@
 import pandas as pd
-
+import math
 """
 Instructions
 1. Run getGoogleSheetsData to download CSV locally from https://docs.google.com/spreadsheets/d/1Au43Tqi2ISWwhzec27fGJm3A5DM86Kq30X5YPMqKkf8/edit?gid=1904121955#gid=1904121955
@@ -9,18 +9,33 @@ Instructions
 
 circuitDataPath = r"C:\Users\ringk\OneDrive\Documents\Circuitry\Data\MockSecurityCamCircuitData.csv"
 
-circuitData = pd.read_csv(circuitDataPath, on_bad_lines='skip')
+
+# DO NOT HAVE COMMAS IN YOUR CSV
+circuitData = pd.read_csv(circuitDataPath, on_bad_lines='warn')
 
 
 
+"""
+Data structure for conversion to spreadsheet:
+Component Type | Required Fields (ALL) | Optional Fields (ANY)
+------------------------------------------------------------
+Flip-Flop      | Resistance Between Power Ohms, Maximum Input Voltage Volts, Safe Limits Range in Amps | Connected to Transistor Component Name
+LED            | Forward Voltage (Vf) Volts, Resistance Between Power Ohms | 
+Servo          |  | 
+Transistor     | Base-Emitter Voltage Drop V_BE Volts | 
+
+
+"""
 
 #It works like. [[ALL of these have to be filled], [Only 1 ITEM needs to be in this list]]
 componentsRequiredValues = {
     # This is for ensuring that the J-K flipflop won't be damaged, and to measure its power
-    "J-K Flip-Flop": [['Resistance Between Power Ohms', 'Maximum Input Voltage Volts', 'Safe Limits Range in Amps'], ['Connected to Transistor Component Name']],
-    "LED": [[], []],
+    "Flip-Flop": [['Resistance Between Power Ohms', 'Maximum Input Voltage Volts', 'Safe Limits Range in Amps'], ['Connected to Transistor Component Name']],
+    "LED": [['Forward Voltage (Vf) Volts', 'Resistance Between Power Ohms'], []],
     "Servo": [[], []],
-    "Transistor": [['Base-Emitter Voltage Drop V_BE Volts'], []]
+    "Transistor": [['Base-Emitter Voltage Drop V_BE Volts'], []],
+    "Arduino Uno R3": [["Idle Power"],[]],
+    "Resistor": [['Resistor Resistance Ohms'],[]]
 }
 
 
@@ -39,9 +54,9 @@ def checkRequiredFields(row, parsedComponent):
     statusMsg = ""
 
     (requiredAll, requiredOne) = componentsRequiredValues[parsedComponent]
-    if len(requiredAll) == 0 or len(requiredOne) == 0:
+    if len(requiredAll) == 0 and len(requiredOne) == 0:
         statusCode = "FAIL"
-        statusMsg = f"{parsedComponent} define this in componentsRequiredValues"
+        statusMsg = f"{parsedComponent} add components within componentsRequiredValues for either list, [requiredAll], [atLeastOne]"
     nullsFound = 0
     itemsMissing = []
     for item in requiredAll:
@@ -70,49 +85,89 @@ def checkRequiredFields(row, parsedComponent):
 voltsInCircuit = 5
 failed = False
 circuitStatusMsg = "SUCCEED" #SUCCEED, or it will throw some message.
-powerConsumption = 0 #On success, it will have Power Consumption 
+activePowerConsumption = {} #On success, it will have Power Consumption
+idlePowerConsumptionDict = {}
+powerBreakdown = {}
+testParsedComponent = "1 kΩ Resistor"
+printLineSeperator = "-----------------------------------"
 
 # Circuit analysis
 for i, row in circuitData.iterrows():
     # Checking if voltage goes above any max input volts
-    component = row['Component']
+    component = row['Component'].strip()
     resistanceBetweenPower = row['Resistance Between Power Ohms']
     
     maxInputVoltage = float(row['Maximum Input Voltage Volts'])
     transistorConnectorName = row['Connected to Transistor Component Name']
     limitsRange = row['Safe Limits Range in Amps']
+    forwardVoltage = row['Forward Voltage (Vf) Volts']
+    idlePowerConsumption = row['Idle Power']
+    ignore = row['Ignore In Script']
+    quantity = row['Quantity']
+    resistance = row['Resistor Resistance Ohms']
+    componentPrefix = f"{component} -"
+    # print(f"{component}")
     
-    circuitStatusMsg = ""
-    presumptiveStatus = f"{component} has 'Maximum Input Voltage Volts' of {maxInputVoltage}v, which is >= than {voltsInCircuit}v, this is above the safe limit."
-    
-    parsedComponent = getParsedComponent(component)
-    if parsedComponent == -1:
-        circuitStatusMsg = f"{component} please define this in componentsRequiredValues"
-        failed = True
-        break
+    if ignore != True: #For stuff like pushbuttons, we may not need to do any calc, but we still want it listed as a material.
+        parsedComponent = getParsedComponent(component)
+        if parsedComponent == -1:
+            circuitStatusMsg = f"{component} please define this in componentsRequiredValues"
+            failed = True
+            break
+        
+        (statusCode, statusMsg) = checkRequiredFields(row, parsedComponent)
+        if statusCode == "SUCCEED": #Only do calcs in this area as we've been sure to check components specifically with their parts only.
+            maxSupplyVoltageCondition = maxInputVoltage >= voltsInCircuit
+            presumptiveStatus = f"{component} has 'Maximum Input Voltage Volts' of {maxInputVoltage}v, which is >= than {voltsInCircuit}v, this is above the safe limit."
 
-    (statusCode, statusMsg) = checkRequiredFields(row, parsedComponent)
-    if statusCode == "SUCCEED": #Only do calcs in this area as we've been sure to check components specifically with their parts only.
-        maxSupplyVoltageCondition = maxInputVoltage >= voltsInCircuit
-        if parsedComponent in ['J-K Flip-Flop']:
-            if pd.isna(transistorConnectorName) == False:
-                transistorFilter = circuitData[circuitData['Component'] == transistorConnectorName].iloc[0]
-                V_out = voltsInCircuit #Assuming the voltage out of this component would be the same power our circuit is being powered by
-                V_be = transistorFilter['Base-Emitter Voltage Drop V_BE Volts'] #Base-emitter
-                I_b = (V_out - V_be) / resistanceBetweenPower #Base current of transistor
-                firstLimit = float(limitsRange.split(" - ")[0])
-                secondLimit = float(limitsRange.split(" - ")[1])
-                maxSupplyVoltageCondition = (firstLimit < I_b < secondLimit) == False
-                presumptiveStatus = f"{component}. The base current of transistor, {I_b}A, is NOT within the range of {firstLimit}A to {secondLimit}A"
+            if parsedComponent == 'Flip-Flop':
+                
+                if pd.isna(transistorConnectorName) == False:
+                    transistorFilter = circuitData[circuitData['Component'] == transistorConnectorName].iloc[0]
+                    V_out = voltsInCircuit #Assuming the voltage out of this component would be the same power our circuit is being powered by
+                    V_be = transistorFilter['Base-Emitter Voltage Drop V_BE Volts'] #Base-emitter
+                    I_b = (V_out - V_be) / resistanceBetweenPower #Base current of transistor
+                    firstLimit = float(limitsRange.split(" - ")[0])
+                    secondLimit = float(limitsRange.split(" - ")[1])
+                    maxSupplyVoltageCondition = (firstLimit < I_b < secondLimit) == False
+                    presumptiveStatus = f"{component}. The base current of transistor, {I_b}A, is NOT within the range of {firstLimit}A to {secondLimit}A"
+
+            if row['PowerComponent'] == True:
+                # Doing power
+                if parsedComponent == "LED":
+                    pass
+                    # 5. Assuming forward voltage of 2V and a current-limiting resistor of 330Ω
+                    # 6. I_led = (5V - 2V) / 330Ω = 0.009A (9mA)
+                    # 7. P_led = 2V * 0.009A = 0.018W (18mW)
+                    
+                    I_component = (voltsInCircuit - forwardVoltage) / resistanceBetweenPower
+                    P_component = (forwardVoltage * I_component) * quantity #This is in Watts
+                    print(f"{componentPrefix} Using our circuit power supply of {voltsInCircuit}V, and a forward voltage of {forwardVoltage}V and a current-limiting resistor of {resistanceBetweenPower}Ω")
+                    print(f"{componentPrefix} I_component = (({voltsInCircuit}v - {forwardVoltage}V) / {resistanceBetweenPower}Ω) * {quantity}quantity = {round(P_component, 4)}A ")
+                    print(printLineSeperator)
+                    activePowerConsumption[component] = P_component 
+                elif parsedComponent == "Resistor":
+                    # 3. Using Ohms law (I = V/R) and Power formula (P = V * I) we get P = V^2/R. So, for 1kΩ connected to 5V we get P = (5V)^2 / 1000 Ω = 0.025W (25mW)
+                    # 4. For 8 resistors, we get 8 * 0.025W = 0.2W (200mW)
+                    P_component = ((math.pow(voltsInCircuit,2))/resistance) * quantity #Watts
+                    activePowerConsumption[component] = P_component
+
+                    # break
+                #This is probably the source of power, so we'd want to incorporate this
+                if pd.isna(idlePowerConsumption) == False:
+                    idlePowerConsumptionDict[component] = idlePowerConsumption * quantity
+                    # break
 
             if maxSupplyVoltageCondition:
                 failed = True
                 circuitStatusMsg = presumptiveStatus
                 break #Simulating returnStatement
-    else:
-        print(statusMsg)
-        failed = True
-        break #Simulating returnStatement
+        else:
+            circuitStatusMsg = statusMsg
+            failed = True
+            break #Simulating returnStatement
+    if component == testParsedComponent:
+        break
 
 print(f"failed {failed} - {circuitStatusMsg}")
 #Fetch the sheet
@@ -128,12 +183,15 @@ Units: mA, A
 def convertCurrentToAmps(value, unit):
     conversionHashmap = {"mA": 1/1000}
     return conversionHashmap[unit] * value
-convertCurrentToAmps(4, "mA")
+# convertCurrentToAmps(4, "mA")
 def convertToOhms(value, unit):
     conversionHashmap = {"kOhms": 1000}
     return conversionHashmap[unit] * value 
-
 # convertToOhms(1, "kOhms")
+def convertToWatts(value, unit):
+    conversionHashmap = {"mW": 1/1000}
+    return conversionHashmap[unit] * value 
+# convertToWatts(50, 'mW')
 # Analyzing Voltage Issues
 """
 Datasheet key values with math breakdown example
