@@ -3,8 +3,8 @@ U1,1, Dual J-K Flip-Flop (74HC73,,,,1000,NPN Transistor (BJT),5,4.46,,,,,,,,,,0.
 D1,1,Red LED,TRUE,,,330,,,,,,,,2,0.02,,,,,
 S1,1,Pushbutton,,TRUE,,,,,,,,,,,,,,,,
 U2,1, Arduino Uno R3,TRUE,,,,,,,,,,,,,,,,,0.05
-SC1,1,5 V, 100 mA Solar Cell,,TRUE,,,,,,,,,,,,,,,,
-Bat1,1,2 batteries, AA, no 1.5V Battery,,TRUE,,,,,,,,,,,,,,,,
+SC1,1,5 V | 100 mA Solar Cell,,TRUE,,,,,,,,,,,,,,,,
+Bat1,1,2 batteries | AA | no 1.5V Battery,,TRUE,,,,,,,,,,,,,,,,
 R1 | R2 | R3 | R4 | R5 | R6 | R7 | R8,8,1 kΩ Resistor,TRUE,,1000,,,,,,,,,,,,,,,
 T1,1,NPN Transistor (BJT),,,,,,,,,,,,,,,,0.7,,
 R10,1,330 Ω Resistor,,TRUE,330,,,,,,,,,,,,,,,

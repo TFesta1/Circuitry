@@ -34,13 +34,10 @@ def getSheet(sheetName, notebookName):
 
     return sheet
 
-sheetName = "Mock Security Latch Table"
 notebookName = "Circuit Data"
 
-sheet = getSheet(sheetName, notebookName)
 
-
-localSavePath = r"C:\Users\ringk\OneDrive\Documents\Circuitry\Data\MockSecurityCamCircuitData.csv"
+basePath = r"C:\Users\ringk\OneDrive\Documents\Circuitry\Data"
 
 def save_sheet_as_csv(sheet, local_path):
     # Get all values from the sheet
@@ -55,5 +52,20 @@ def save_sheet_as_csv(sheet, local_path):
 
     print(f"Sheet saved as CSV at: {local_path}")
 
+sheetName = "Mock Security Latch Table"
+localSavePath = fr"{basePath}\{sheetName}.csv"
+mockSecurityCam = getSheet(sheetName, notebookName)
+save_sheet_as_csv(mockSecurityCam, localSavePath)
 
-save_sheet_as_csv(sheet, localSavePath)
+
+sheetName = "Circuit Parameters"
+localSavePath = fr"{basePath}\{sheetName}.csv"
+mockSecurityCam = getSheet(sheetName, notebookName)
+save_sheet_as_csv(mockSecurityCam, localSavePath)
+
+
+sheetName = "Mock Security Latch Required Fields"
+localSavePath = fr"{basePath}\{sheetName}.csv"
+mockSecurityCam = getSheet(sheetName, notebookName)
+save_sheet_as_csv(mockSecurityCam, localSavePath)
+

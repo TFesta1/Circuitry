@@ -10,6 +10,84 @@ Instructions
 """
 Units: mA, A
 """
+#Fetch the sheet
+# time.sleep(10000)
+    
+
+
+
+
+
+# convertToWatts(50, 'mW')
+# Analyzing Voltage Issues
+"""
+Datasheet key values with math breakdown example
+74HC73 Dual J-K Flip-Flop:
+1. Maximum Supply Voltage (Vcc): 4.46V
+2. Maximum Input Voltage: Should not exceed Vcc (4.46V)
+3. Output Current Limit: The maximum current the output pins can source/sink without damage (explain)
+
+NPN Transistor BJT
+1. Collector-Emitter Voltage (Vce): Max voltage the transistor can handle between collector and emitter
+2. Base-Emitter Voltage (Vbe): Max volt between base and emitter
+3. Maximum Collector Current (lc): Determines the load the transistor can handle.
+
+LED:
+1. Forward Voltage (Vf): Voltage required to turn the LED on (2v typically for red)
+2. Maxumum Forward Current: Usually ~20mA for standard LEDs (explain)
+
+Servo Motors (assuming ours draws 100mA at 5V):
+1. Operating voltage: Check if they operate on 5V
+2. Current Draw: Peak current during movement
+
+
+
+Math example on circuit 
+https://www.tinkercad.com/things/3fEo4d1NZqQ/editel?returnTo=%2Fdashboard%2Fdesigns%2Fcircuits
+https://docs.google.com/spreadsheets/d/1Au43Tqi2ISWwhzec27fGJm3A5DM86Kq30X5YPMqKkf8/edit?gid=1904121955#gid=1904121955
+
+Steps:
+1.Arduino is 5V
+2 Since safe limit of 74HC73 is 4.46V, and 5V > 4.46, we add 1kΩ on pins here. I_B = (V_out - V_BE) / R
+I_B = Base current of transistor
+V_out = Output voltage of 74HC73 (5V within our circuit)
+V_BE = base-emitter voltage drop of NPN Transistor (typically 0.7V for standard BJTs)
+R = Resistance (1kΩ)
+
+I_B = (5V - 0.7V) / 1000Ω = 0.0043A = 4.3mA --> safe limits of 74HC73
+Output current of 74HC73:
+I_OH: Maximum current output can source, when it is HIGH (typically 4-8mA for 5V) --> One we're using
+I_OL: Maximum current output can source, when it is LOW (typically 4-8mA for 5V)
+
+Relevant sections on datasheet:
+- "Absolute Maximum Ratings": Max current the IC can handle without damage
+- "Electrical Characteristics": Specifies maximum I_OH/I_OL under 5V or other typical voltages
+
+
+#Power calc for resistors
+3. Using Ohms law (I = V/R) and Power formula (P = V * I) we get P = V^2/R. So, for 1kΩ connected to 5V we get P = (5V)^2 / 1000 Ω = 0.025W (25mW)
+4. For 8 resistors, we get 8 * 0.025W = 0.2W (200mW)
+#Power calc for LED
+5. Assuming forward voltage of 2V and a current-limiting resistor of 330Ω
+6. I_led = (5V - 2V) / 330Ω = 0.009A (9mA)
+7. P_led = 2V * 0.009A = 0.018W (18mW)
+# Power calc for 2 servos (these draw a lot of current)
+8. Assuming this draws 100mA at 5V
+9. P_servo = 5V * 0.1A = 0.5W (500mW)
+10. P_servos = 2*0.5W = 1.0W
+# Total power
+11. Resistors (200mW) LED (18mW) Servos (1.0W)
+P_total = 0.2W + 0.018W + 1.0W = 1.218W
+
+#Note: When it is turned off (momentary button not pressed)
+12. Arduino's idle power and leakage current is assumed to be 50mW
+
+Total Power Draw: 1.218W
+Circuit is off: ~50mW
+
+
+"""
+
 def convertCurrentToAmps(value, unit):
     conversionHashmap = {"mA": 1/1000}
     return conversionHashmap[unit] * value
@@ -22,13 +100,26 @@ def convertToWatts(value, unit):
     conversionHashmap = {"mW": 1/1000}
     return conversionHashmap[unit] * value 
 
-circuitDataPath = r"C:\Users\ringk\OneDrive\Documents\Circuitry\Data\MockSecurityCamCircuitData.csv"
+basePath = r"C:\Users\ringk\OneDrive\Documents\Circuitry\Data"
 
 
 # DO NOT HAVE COMMAS IN YOUR CSV
-circuitData = pd.read_csv(circuitDataPath, on_bad_lines='warn')
+circuitData = pd.read_csv(fr"{basePath}\Mock Security Latch Table.csv", on_bad_lines='warn')
+circuitParameters = pd.read_csv(fr"{basePath}\Circuit Parameters.csv", on_bad_lines='warn')
+circuitRequired = pd.read_csv(fr"{basePath}\Mock Security Latch Required Fields.csv", on_bad_lines='warn')
+componentsRequiredValues = {}
 
+for i, row in circuitRequired.iterrows():
+    requiredAll = []
+    requiredAny = []
+    if pd.isna(row['Required Fields (ALL)']) == False:
+        requiredAll = row['Required Fields (ALL)'].split(" | ")
+        requiredAll = [x.strip() for x in requiredAll]
+    if pd.isna(row['Optional Fields (ANY)']) == False:
+        requiredAny = row['Optional Fields (ANY)'].split(" | ")
+        requiredAny = [x.strip() for x in requiredAny]
 
+    componentsRequiredValues[row['Component Type']] = [requiredAll,requiredAny]
 
 """
 Data structure for conversion to spreadsheet:
@@ -43,15 +134,15 @@ Transistor     | Base-Emitter Voltage Drop V_BE Volts |
 """
 
 #It works like. [[ALL of these have to be filled], [Only 1 ITEM needs to be in this list]]
-componentsRequiredValues = {
-    # This is for ensuring that the J-K flipflop won't be damaged, and to measure its power
-    "Flip-Flop": [['Resistance Between Power Ohms', 'Maximum Input Voltage Volts', 'Safe Limits Range in Amps'], ['Connected to Transistor Component Name']],
-    "LED": [['Forward Voltage (Vf) Volts', 'Resistance Between Power Ohms'], []],
-    "Servo": [["Operation_Volts", "Operation_Amps_At_Volts"], []],
-    "Transistor": [['Base-Emitter Voltage Drop V_BE Volts'], []],
-    "Arduino Uno R3": [["Idle Power"],[]],
-    "Resistor": [['Resistor Resistance Ohms'],[]]
-}
+# componentsRequiredValues = {
+#     # This is for ensuring that the J-K flipflop won't be damaged, and to measure its power
+#     "Flip-Flop": [['Resistance Between Power Ohms', 'Maximum Input Voltage Volts', 'Safe Limits Range in Amps'], ['Connected to Transistor Component Name']],
+#     "LED": [['Forward Voltage (Vf) Volts', 'Resistance Between Power Ohms'], []],
+#     "Servo": [["Operation_Volts", "Operation_Amps_At_Volts"], []],
+#     "Transistor": [['Base-Emitter Voltage Drop V_BE Volts'], []],
+#     "Arduino Uno R3": [["Idle Power"],[]],
+#     "Resistor": [['Resistor Resistance Ohms'],[]]
+# }
 
 
 #Parses our component into something we know and can define from above.
@@ -99,7 +190,7 @@ def checkRequiredFields(row, parsedComponent):
     return (statusCode, statusMsg)
 
 
-voltsInCircuit = 5
+voltsInCircuit = circuitParameters[circuitParameters['Parameter'] == 'voltsInCircuit'].iloc[0]['Value']
 failed = False
 circuitStatusMsg = "SUCCEED" #SUCCEED, or it will throw some message.
 activePowerConsumption = {} #On success, it will have Power Consumption
@@ -209,87 +300,12 @@ for i, row in circuitData.iterrows():
 print(f"failed {failed} - {circuitStatusMsg}")
 if failed == False:
     print(f"Active power consumption components: {activePowerConsumption}")
-    print(f"P_Active = {round(sum(activePowerConsumption.values()), 4)}W")
+    P_Active = sum(activePowerConsumption.values())
+    print(f"P_Active = {round(P_Active,4)}W")
     print(printLineSeperator)
     print(f"Idle power consumption components: {activePowerConsumption}")
-    print(f"P_Idle = {round(sum(idlePowerConsumptionDict.values()), 4)}W")
+    P_Idle = sum(idlePowerConsumptionDict.values())
+    print(f"P_Idle = {round(P_Idle,4)}W")
 
 
 
-#Fetch the sheet
-# time.sleep(10000)
-    
-
-
-
-
-
-# convertToWatts(50, 'mW')
-# Analyzing Voltage Issues
-"""
-Datasheet key values with math breakdown example
-74HC73 Dual J-K Flip-Flop:
-1. Maximum Supply Voltage (Vcc): 4.46V
-2. Maximum Input Voltage: Should not exceed Vcc (4.46V)
-3. Output Current Limit: The maximum current the output pins can source/sink without damage (explain)
-
-NPN Transistor BJT
-1. Collector-Emitter Voltage (Vce): Max voltage the transistor can handle between collector and emitter
-2. Base-Emitter Voltage (Vbe): Max volt between base and emitter
-3. Maximum Collector Current (lc): Determines the load the transistor can handle.
-
-LED:
-1. Forward Voltage (Vf): Voltage required to turn the LED on (2v typically for red)
-2. Maxumum Forward Current: Usually ~20mA for standard LEDs (explain)
-
-Servo Motors (assuming ours draws 100mA at 5V):
-1. Operating voltage: Check if they operate on 5V
-2. Current Draw: Peak current during movement
-
-
-
-Math example on circuit 
-https://www.tinkercad.com/things/3fEo4d1NZqQ/editel?returnTo=%2Fdashboard%2Fdesigns%2Fcircuits
-https://docs.google.com/spreadsheets/d/1Au43Tqi2ISWwhzec27fGJm3A5DM86Kq30X5YPMqKkf8/edit?gid=1904121955#gid=1904121955
-
-Steps:
-1.Arduino is 5V
-2 Since safe limit of 74HC73 is 4.46V, and 5V > 4.46, we add 1kΩ on pins here. I_B = (V_out - V_BE) / R
-I_B = Base current of transistor
-V_out = Output voltage of 74HC73 (5V within our circuit)
-V_BE = base-emitter voltage drop of NPN Transistor (typically 0.7V for standard BJTs)
-R = Resistance (1kΩ)
-
-I_B = (5V - 0.7V) / 1000Ω = 0.0043A = 4.3mA --> safe limits of 74HC73
-Output current of 74HC73:
-I_OH: Maximum current output can source, when it is HIGH (typically 4-8mA for 5V) --> One we're using
-I_OL: Maximum current output can source, when it is LOW (typically 4-8mA for 5V)
-
-Relevant sections on datasheet:
-- "Absolute Maximum Ratings": Max current the IC can handle without damage
-- "Electrical Characteristics": Specifies maximum I_OH/I_OL under 5V or other typical voltages
-
-
-#Power calc for resistors
-3. Using Ohms law (I = V/R) and Power formula (P = V * I) we get P = V^2/R. So, for 1kΩ connected to 5V we get P = (5V)^2 / 1000 Ω = 0.025W (25mW)
-4. For 8 resistors, we get 8 * 0.025W = 0.2W (200mW)
-#Power calc for LED
-5. Assuming forward voltage of 2V and a current-limiting resistor of 330Ω
-6. I_led = (5V - 2V) / 330Ω = 0.009A (9mA)
-7. P_led = 2V * 0.009A = 0.018W (18mW)
-# Power calc for 2 servos (these draw a lot of current)
-8. Assuming this draws 100mA at 5V
-9. P_servo = 5V * 0.1A = 0.5W (500mW)
-10. P_servos = 2*0.5W = 1.0W
-# Total power
-11. Resistors (200mW) LED (18mW) Servos (1.0W)
-P_total = 0.2W + 0.018W + 1.0W = 1.218W
-
-#Note: When it is turned off (momentary button not pressed)
-12. Arduino's idle power and leakage current is assumed to be 50mW
-
-Total Power Draw: 1.218W
-Circuit is off: ~50mW
-
-
-"""

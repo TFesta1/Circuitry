@@ -1,0 +1,7 @@
+Component Type,Required Fields (ALL),Optional Fields (ANY)
+Flip-Flop,Resistance Between Power Ohms | Maximum Input Voltage Volts | Safe Limits Range in Amps,Connected to Transistor Component Name
+LED,Forward Voltage (Vf) Volts | Resistance Between Power Ohms,
+Servo,Operation_Volts | Operation_Amps_At_Volts,
+Transistor,Base-Emitter Voltage Drop V_BE Volts,
+Arduino Uno R3,Idle Power,
+Resistor,Resistor Resistance Ohms,
