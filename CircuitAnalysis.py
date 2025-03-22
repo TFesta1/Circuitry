@@ -7,6 +7,21 @@ Instructions
 
 """
 
+"""
+Units: mA, A
+"""
+def convertCurrentToAmps(value, unit):
+    conversionHashmap = {"mA": 1/1000}
+    return conversionHashmap[unit] * value
+# convertCurrentToAmps(4, "mA")
+def convertToOhms(value, unit):
+    conversionHashmap = {"kOhms": 1000}
+    return conversionHashmap[unit] * value 
+# convertToOhms(1, "kOhms")
+def convertToWatts(value, unit):
+    conversionHashmap = {"mW": 1/1000}
+    return conversionHashmap[unit] * value 
+
 circuitDataPath = r"C:\Users\ringk\OneDrive\Documents\Circuitry\Data\MockSecurityCamCircuitData.csv"
 
 
@@ -32,7 +47,7 @@ componentsRequiredValues = {
     # This is for ensuring that the J-K flipflop won't be damaged, and to measure its power
     "Flip-Flop": [['Resistance Between Power Ohms', 'Maximum Input Voltage Volts', 'Safe Limits Range in Amps'], ['Connected to Transistor Component Name']],
     "LED": [['Forward Voltage (Vf) Volts', 'Resistance Between Power Ohms'], []],
-    "Servo": [[], []],
+    "Servo": [["Operation_Volts", "Operation_Amps_At_Volts"], []],
     "Transistor": [['Base-Emitter Voltage Drop V_BE Volts'], []],
     "Arduino Uno R3": [["Idle Power"],[]],
     "Resistor": [['Resistor Resistance Ohms'],[]]
@@ -46,6 +61,8 @@ def getParsedComponent(component):
         if key in component:
             return key
     return componentReturn
+
+
 
 
 #parsedComponent needs to be called from getParsedComponent to get the component form the list of componentsRequiredValues
@@ -88,7 +105,7 @@ circuitStatusMsg = "SUCCEED" #SUCCEED, or it will throw some message.
 activePowerConsumption = {} #On success, it will have Power Consumption
 idlePowerConsumptionDict = {}
 powerBreakdown = {}
-testParsedComponent = "1 kΩ Resistor"
+testParsedComponent = ""
 printLineSeperator = "-----------------------------------"
 
 # Circuit analysis
@@ -105,6 +122,8 @@ for i, row in circuitData.iterrows():
     ignore = row['Ignore In Script']
     quantity = row['Quantity']
     resistance = row['Resistor Resistance Ohms']
+    operationalVolts = row['Operation_Volts']
+    operationalAmpsAtVolts = row['Operation_Amps_At_Volts']
     componentPrefix = f"{component} -"
     # print(f"{component}")
     
@@ -143,14 +162,32 @@ for i, row in circuitData.iterrows():
                     I_component = (voltsInCircuit - forwardVoltage) / resistanceBetweenPower
                     P_component = (forwardVoltage * I_component) * quantity #This is in Watts
                     print(f"{componentPrefix} Using our circuit power supply of {voltsInCircuit}V, and a forward voltage of {forwardVoltage}V and a current-limiting resistor of {resistanceBetweenPower}Ω")
-                    print(f"{componentPrefix} I_component = (({voltsInCircuit}v - {forwardVoltage}V) / {resistanceBetweenPower}Ω) * {quantity}quantity = {round(P_component, 4)}A ")
+                    print(f"{componentPrefix} I_component = (({voltsInCircuit}v - {forwardVoltage}V) / {resistanceBetweenPower}Ω) * {quantity}quantity = {round(P_component, 4)}W ")
                     print(printLineSeperator)
                     activePowerConsumption[component] = P_component 
                 elif parsedComponent == "Resistor":
                     # 3. Using Ohms law (I = V/R) and Power formula (P = V * I) we get P = V^2/R. So, for 1kΩ connected to 5V we get P = (5V)^2 / 1000 Ω = 0.025W (25mW)
                     # 4. For 8 resistors, we get 8 * 0.025W = 0.2W (200mW)
                     P_component = ((math.pow(voltsInCircuit,2))/resistance) * quantity #Watts
+                    print(f"{componentPrefix} Using Ohms law (I = V/R) and Power formula (P = V * I) we get P = V^2/R. So, for {resistance}Ω connected to {voltsInCircuit}V")
+                    print(f"{componentPrefix} P_component = (({voltsInCircuit}V ^ 2) / {resistance}Ω) * {quantity}quantity = {round(P_component,4)}W")
+                    print(printLineSeperator)
                     activePowerConsumption[component] = P_component
+                elif parsedComponent == "Servo":
+                    # 8. Assuming this draws 100mA at 5V
+                    # 9. P_servo = 5V * 0.1A = 0.5W (500mW)
+                    # 10. P_servos = 2*0.5W = 1.0W
+                    if voltsInCircuit != operationalVolts:
+                        circuitStatusMsg = f"{componentPrefix} failed, the volts in circuit is {voltsInCircuit}V, but the operational volts specified here is {operationalVolts}. These do not equal eachother when they should. Please get the data for the operational voltage for which matches the circuit voltage"
+                        failed = True
+                        break
+                    P_component = (voltsInCircuit * operationalAmpsAtVolts) * quantity
+                    activePowerConsumption[component] = P_component
+                    print(f"{componentPrefix} Using that this draws {operationalAmpsAtVolts}A at {voltsInCircuit}V")
+                    print(f"{componentPrefix} P_component = ({voltsInCircuit}V * {operationalAmpsAtVolts}A) * {quantity}quantity = {round(P_component,4)}W")
+                    print(printLineSeperator)
+                    # 8. Assuming this draws 100mA at 5V
+                    # 9. P_servo = 5V * 0.1A = 0.5W (500mW)
 
                     # break
                 #This is probably the source of power, so we'd want to incorporate this
@@ -170,6 +207,15 @@ for i, row in circuitData.iterrows():
         break
 
 print(f"failed {failed} - {circuitStatusMsg}")
+if failed == False:
+    print(f"Active power consumption components: {activePowerConsumption}")
+    print(f"P_Active = {round(sum(activePowerConsumption.values()), 4)}W")
+    print(printLineSeperator)
+    print(f"Idle power consumption components: {activePowerConsumption}")
+    print(f"P_Idle = {round(sum(idlePowerConsumptionDict.values()), 4)}W")
+
+
+
 #Fetch the sheet
 # time.sleep(10000)
     
@@ -177,20 +223,7 @@ print(f"failed {failed} - {circuitStatusMsg}")
 
 
 
-"""
-Units: mA, A
-"""
-def convertCurrentToAmps(value, unit):
-    conversionHashmap = {"mA": 1/1000}
-    return conversionHashmap[unit] * value
-# convertCurrentToAmps(4, "mA")
-def convertToOhms(value, unit):
-    conversionHashmap = {"kOhms": 1000}
-    return conversionHashmap[unit] * value 
-# convertToOhms(1, "kOhms")
-def convertToWatts(value, unit):
-    conversionHashmap = {"mW": 1/1000}
-    return conversionHashmap[unit] * value 
+
 # convertToWatts(50, 'mW')
 # Analyzing Voltage Issues
 """

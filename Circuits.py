@@ -1,4 +1,4 @@
-import helpers
+import CircuitAnalysis
 """
 Problem#1: Having to charge a 9V battery with a 5V solar panel with 100mA max storage
 We can't solely do this, so we need
@@ -36,8 +36,5 @@ NPN Transistor (BJT): This means the current flows from the collector to the emi
 
 
 # Tracking our security cam
-partsInCircuitDict = {"74HC73 Dual JK Flipflop": 10,
-                      "NPN Transistor BJT": 10}
-circuitVolts = 5
-circuitDetails = helpers.totalCircuitConsumption(partsInCircuitDict, circuitVolts)
+
 
