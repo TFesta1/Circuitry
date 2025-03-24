@@ -52,13 +52,12 @@ def save_sheet_as_csv(sheet, local_path):
 
     print(f"Sheet saved as CSV at: {local_path}")
 
-sheetName = "Mock Security Latch Table"
+sheetName = "Circuit Parameters"
 localSavePath = fr"{basePath}\{sheetName}.csv"
 mockSecurityCam = getSheet(sheetName, notebookName)
 save_sheet_as_csv(mockSecurityCam, localSavePath)
 
-
-sheetName = "Circuit Parameters"
+sheetName = "Mock Security Latch Table"
 localSavePath = fr"{basePath}\{sheetName}.csv"
 mockSecurityCam = getSheet(sheetName, notebookName)
 save_sheet_as_csv(mockSecurityCam, localSavePath)
@@ -68,4 +67,17 @@ sheetName = "Mock Security Latch Required Fields"
 localSavePath = fr"{basePath}\{sheetName}.csv"
 mockSecurityCam = getSheet(sheetName, notebookName)
 save_sheet_as_csv(mockSecurityCam, localSavePath)
+
+
+sheetName = "Security Latch Table"
+localSavePath = fr"{basePath}\{sheetName}.csv"
+mockSecurityCam = getSheet(sheetName, notebookName)
+save_sheet_as_csv(mockSecurityCam, localSavePath)
+
+
+sheetName = "Security Latch Required Fields"
+localSavePath = fr"{basePath}\{sheetName}.csv"
+mockSecurityCam = getSheet(sheetName, notebookName)
+save_sheet_as_csv(mockSecurityCam, localSavePath)
+
 
