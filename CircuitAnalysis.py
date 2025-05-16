@@ -1,5 +1,6 @@
 import pandas as pd
 import math
+import getGoogleSheetsData
 """
 Instructions
 1. Run getGoogleSheetsData to download CSV locally from https://docs.google.com/spreadsheets/d/1Au43Tqi2ISWwhzec27fGJm3A5DM86Kq30X5YPMqKkf8/edit?gid=1904121955#gid=1904121955
@@ -84,14 +85,13 @@ P_total = 0.2W + 0.018W + 1.0W = 1.218W
 
 Total Power Draw: 1.218W
 Circuit is off: ~50mW
-
-
 """
 
 def convertCurrentToAmps(value, unit):
-    conversionHashmap = {"mA": 1/1000}
+    conversionHashmap = {"mA": 1/1000,
+                         "uA": 1/1000000}
     return conversionHashmap[unit] * value
-convertCurrentToAmps(900, "mA")
+# convertCurrentToAmps(10, "mA")
 def convertToOhms(value, unit):
     conversionHashmap = {"kOhms": 1000,
                          "µA": 1/1000000}

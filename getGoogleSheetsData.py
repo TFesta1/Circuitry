@@ -81,3 +81,11 @@ mockSecurityCam = getSheet(sheetName, notebookName)
 save_sheet_as_csv(mockSecurityCam, localSavePath)
 
 
+
+
+notebookName = "Dimensions"
+sheetName = "USBCPhoneClamp"
+localSavePath = fr"{basePath}\{sheetName}.csv"
+mockSecurityCam = getSheet(sheetName, notebookName)
+save_sheet_as_csv(mockSecurityCam, localSavePath)
+

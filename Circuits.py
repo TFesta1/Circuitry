@@ -1,4 +1,4 @@
-import CircuitAnalysis
+# import CircuitAnalysis
 """
 Problem#1: Having to charge a 9V battery with a 5V solar panel with 100mA max storage
 We can't solely do this, so we need
@@ -34,6 +34,29 @@ NPN Transistor (BJT): This means the current flows from the collector to the emi
 
 """
 
+
+
+def imageScale(originalX, originalY, newX):
+    """
+    Function to scale an image proportionally based on a new width.
+    
+    Parameters:
+    originalX (int): Original width of the image.
+    originalY (int): Original height of the image.
+    newX (int): New width for the scaled image.
+    
+    Returns:
+    tuple: New width and height of the scaled image.
+    """
+    
+    # Calculate the scaling factor
+    scaleFactor = newX / originalX
+    
+    # Calculate new dimensions
+    newY = originalY * scaleFactor
+    
+    return (newX, round(newY,2))
+imageScale(1223.28, 918.52, 135)
 
 # Tracking our security cam
 
